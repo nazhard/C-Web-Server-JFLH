@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #define MAX_BUFFER 1024
 #define PORT 8080
@@ -14,10 +15,30 @@ void handle_http_request(char *request, int new_socket)
   sscanf(request, "%s %s %s", method, path, protocol);
 
   if (strcmp(method, "GET") == 0 && strcmp(path, "/") == 0) {
-    char response[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!";
+    int fd = open("index.html", O_RDONLY);
+    if (fd == -1) {
+      perror("Huwaa failed to open file!");
+      return;
+    }
+
+    // Get the size of the file
+    off_t file_size = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET); // Reset file pointer to the beginning
+    // Read the file into a buffer
+    char *file_buffer = malloc(file_size + 1);
+    read(fd, file_buffer, file_size);
+    file_buffer[file_size] = '\0';  // Null-terminate the string
+
+    // Send the HTTP response
+    char response[MAX_BUFFER];
+    sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n%s", file_buffer);
     write(new_socket, response, strlen(response));
+
+    // Clean up
+    free(file_buffer);
+    close(fd);
   } else {
-    char response[] = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nO-onii-chan??.";
+    char response[] = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nO-onii-chan??";
     write(new_socket, response, strlen(response));
   }
 }
